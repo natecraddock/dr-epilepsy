@@ -20,16 +20,16 @@
 
 bl_info = {
     'name': 'Dr. Epilepsy',
-    'author': 'Bassam Kurdali, Dalai Felinto, Nathan Letwory, inspired by Bastian Salmela',
-    'version': (1, 0, 5),
-    "blender": (2, 5, 9),
+    'author': 'Nathan Craddock, Bassam Kurdali, Dalai Felinto, Nathan Letwory, inspired by Bastian Salmela',
+    'version': (1, 1, 0),
+    "blender": (2, 80, 0),
     "api": 39104,
     'location': 'View3D > OSKey-D',
-    'description': 'Dr Epililepsy will melt your brain',
+    'description': 'Dr. Epililepsy will melt your brain',
     'wiki_url': '',
     'tracker_url': '',
-    'category': '3D View'}
-
+    'category': '3D View'
+}
 
 import bpy
 import time
@@ -70,11 +70,11 @@ def parseNotes(notes, bpm, basefreq, rate = 44100,
         freq = math.pow(2, freq/12)*basefreq
         length = float(dur)*60/bpm
  
-        snd = aud.Factory.sine(freq, rate)
+        snd = aud.Sound.sine(freq, rate)
         if char == 'p':
             snd = snd.volume(0)
         else:
-            snd = snd.square()
+            snd = snd.square(freq)
         snd = snd.limit(0, length)
         snd = snd.fadein(0, fadelength)
         snd = snd.fadeout(length - fadelength, fadelength)
@@ -101,39 +101,13 @@ def tetris(bpm = 300, freq = 220, rate = 44100):
     return s11.join(s12).join(s11).volume(0.5).mix(s21.join(s22).join(s21).volume(0.3))
  
 def play(bpm = 300, freq = 220):
-    dev = aud.device()
+    dev = aud.Device()
     h= dev.play(tetris(bpm, freq, dev.rate))
     h.loop_count = -1
     return h
 
-
-
-def defilento(self):
-
-    pat = self._pattern
-        
-    pat_one = pat << 1
-    pat = pat >> 15
-    pat |= pat_one & 0xFFFF
-    
-    self._pattern = pat
-    
-    bgl.glEnable(bgl.GL_LINE_STIPPLE)
-    bgl.glLineStipple(55, self._pattern)
-
-    width = abs(math.sin(time.time()) * 11.0)
-    bgl.glLineWidth(width)
-
-    
-    
-       # 2D drawing code example
-    bgl.glBegin(bgl.GL_LINE_STRIP)
-    bgl.glVertex2i(0, 0)
-    bgl.glVertex2i(80, 100)
-    bgl.glEnd()
-
-class ModalTimerOperator(bpy.types.Operator):
-    '''Operator which runs its self from a timer.'''
+class BLENDER_OT_dr_epilepsy(bpy.types.Operator):
+    '''Makes the UI beautiful while singing a delightful tune to increase productivity.'''
     bl_idname = "wm.drepilepsy"
     bl_label = "Dr Epilepsy"
 
@@ -142,52 +116,77 @@ class ModalTimerOperator(bpy.types.Operator):
     _pattern =  0b0011001110011001
 
     def modal(self, context, event):
-
-        
         if event.type == 'ESC':
             return self.cancel(context)
 
         if event.type == 'TIMER':
-
- 
-        
-
             for area in context.window_manager.windows[0].screen.areas:
                 if area.type == 'VIEW_3D':
                     for space in area.spaces:
                         if space.type == 'VIEW_3D':
-                            space.grid_scale = 3 + 2*sin(4*time.time())
+                            space.overlay.grid_scale = 3 + 2*sin(4*time.time())
+            
             # change theme color, silly!
-            theme = context.user_preferences.themes[0]
+            theme = context.preferences.themes[0]
             for buttin in dir(theme.user_interface):
                 button = getattr(theme.user_interface,buttin)
                 if type(button) == bpy.types.ThemeWidgetColors:
                     for element in dir(button):
                         if element in ['outline','item','inner','inner_sel']:
                             elem = getattr(button,element)
-                            #print(element,button)
                             elem[0] = random()
                             elem[1] = random()
                             elem[2] = random()
-            context.user_preferences.system.dpi = 50 + int(random()*100)
+            context.preferences.view.ui_scale = 1 + random()*2
             for vb in dir(theme):
                 bov = getattr(theme,vb)
                 cols = [thing for thing in dir(bov) if type(getattr(bov,thing))==Color]
                 for col in cols:
                     color = getattr(bov,col)
-                    #tcolor = bov.back
                     
                     color.r = random()
                     color.g = random()
-                    color.b = random() 
-            defilento(self)                                       
+                    color.b = random()
+                
+                if hasattr(bov, "space"):
+                    space = bov.space
+                    
+                    # Color the back of each area
+                    if hasattr(space, "back"):
+                        back = space.back
+                        back.r = random()
+                        back.g = random()
+                        back.b = random()
+                    
+                    # Color each part of the space
+                    parts = [part for part in dir(space) if type(getattr(space, part)) is bpy.types.bpy_prop_array]
+                    for part in parts:
+                        color = getattr(space, part)
+                        color[0] = random()
+                        color[1] = random()
+                        color[2] = random()
+                    
+                    # Color the panels
+                    if hasattr(space, "panelcolors"):
+                        panel = bov.space.panelcolors
+                        parts = [part for part in dir(panel) if type(getattr(panel, part)) is bpy.types.bpy_prop_array]
+                        for part in parts:
+                            color = getattr(panel, part)
+                            color[0] = random()
+                            color[1] = random()
+                            color[2] = random()
 
-
+            # Color the 3D View background (an exception)
+            background_color = bpy.context.preferences.themes[0].view_3d.space.gradients.high_gradient
+            background_color[0] = random()
+            background_color[1] = random()
+            background_color[2] = random()
+            
         return {'PASS_THROUGH'}
 
     def execute(self, context):
         context.window_manager.modal_handler_add(self)
-        self._timer = context.window_manager.event_timer_add(0.001, context.window)
+        self._timer = context.window_manager.event_timer_add(0.001, window=context.window)
         self._handle = play()
         return {'RUNNING_MODAL'}
 
@@ -198,21 +197,16 @@ class ModalTimerOperator(bpy.types.Operator):
 
 
 def register():
-
-    #kmi.properties.name = 'VIEW3D_MT_copypopup'
-    bpy.utils.register_class(ModalTimerOperator)
+    bpy.utils.register_class(BLENDER_OT_dr_epilepsy)
     kc = bpy.context.window_manager.keyconfigs.addon
     km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
     kmi = km.keymap_items.new('wm.drepilepsy', 'D', 'PRESS', oskey=True)
 
 def unregister():
-    bpy.utils.unregister_class(ModalTimerOperator)
+    bpy.utils.unregister_class(BLENDER_OT_dr_epilepsy)
     km = bpy.context.window_manager.keyconfigs.addon.keymaps["3D View"]
     for kmi in km.keymap_items:
         km.keymap_items.remove(kmi)
 
 if __name__ == "__main__":
     register()
-
-    # test call
-    #bpy.ops.wm.modal_timer_operator()
